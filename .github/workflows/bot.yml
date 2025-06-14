@@ -1,0 +1,22 @@
+name: Run TV Bot
+on:
+  schedule:
+    - cron: '0 */2 * * *'  # Her 2 saatte bir
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    - name: Install packages
+      run: pip install requests APScheduler m3u8
+    - name: Run bot
+      run: python bot.py
+    - uses: actions/upload-artifact@v3
+      with:
+        name: playlist
+        path: vavooall.m3u
