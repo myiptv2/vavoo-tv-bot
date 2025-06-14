@@ -1,12 +1,12 @@
 import requests
 import re
 import time
-from apscheduler.schedulers.blocking import BlockingScheduler
 import logging
+import os
 
 # Log ayarları
-logging.basicConfig()
-logging.getLogger('apscheduler').setLevel(logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Vavoo.tv API ayarları
 URL = "https://vavoo.to/channels"
@@ -85,25 +85,35 @@ COUNTRY_NAME_MAP = {
 }
 
 def normalize_tvg_id(name):
+    """Kanal isimlerini normalize eder"""
     name_ascii = name.translate(TURKISH_CHAR_MAP)
     return re.sub(r'\W+', '_', name_ascii.strip()).upper()
 
 def fix_channel_name(name):
+    """Kanal isimlerindeki hataları düzeltir"""
     for wrong, correct in NAME_CORRECTIONS.items():
         name = re.sub(wrong, correct, name, flags=re.IGNORECASE)
     return name.strip()
 
 def fetch_all_channels():
+    """Tüm kanalları Vavoo API'den çeker"""
     try:
-        response = requests.get(URL)
-        response.raise_for_status()  # HTTP hataları için (DÜZELTME: # eklendi)
+        logger.info("Kanal listesi çekiliyor...")
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+        response = requests.get(URL, headers=headers, timeout=30)
+        response.raise_for_status()  # HTTP hataları için
         
         channels = response.json()
+        logger.info(f"{len(channels)} kanal bulundu")
         
+        # Kanal isimlerini düzelt
         for ch in channels:
             ch["name"] = fix_channel_name(ch.get("name", ""))
             ch["country"] = ch.get("country", "Unknown")
         
+        # Ülke ve isme göre sırala
         def sort_key(ch):
             country = ch.get("country", "").lower()
             name = ch.get("name", "").lower()
@@ -112,20 +122,23 @@ def fetch_all_channels():
         return sorted(channels, key=sort_key)
     
     except Exception as e:
-        print(f"Hata: Kanal listesi alınamadı. {str(e)}")
+        logger.error(f"Kanal listesi alınamadı: {str(e)}")
         return []
 
 def generate_m3u(channels):
+    """M3U dosyasını oluşturur"""
     if not channels:
-        print("Uyarı: Kanal listesi boş, dosya oluşturulmadı.")
-        return
+        logger.warning("Kanal listesi boş, dosya oluşturulmadı")
+        return False
     
-    country_counts = {}
-    for ch in channels:
-        country = ch.get("country", "Unknown")
-        country_counts[country] = country_counts.get(country, 0) + 1
-
     try:
+        # Ülkelere göre kanal sayılarını hesapla
+        country_counts = {}
+        for ch in channels:
+            country = ch.get("country", "Unknown")
+            country_counts[country] = country_counts.get(country, 0) + 1
+        
+        # Dosyayı oluştur
         with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
             f.write("#EXTM3U\n")
             for ch in channels:
@@ -143,35 +156,31 @@ def generate_m3u(channels):
                     f'tvg-country="{country_tr}" tvg-id="{tvg_id}" tvg-logo="{LOGO_URL}" '
                     f'group-title="{group_title}",{name}\n{proxy_url}\n'
                 )
-
-        print(f"{len(channels)} kanal başarıyla kaydedildi → '{OUTPUT_FILE}'")
+        
+        logger.info(f"{len(channels)} kanal başarıyla kaydedildi → '{OUTPUT_FILE}'")
         return True
     except Exception as e:
-        print(f"Dosya yazma hatası: {str(e)}")
+        logger.error(f"Dosya yazma hatası: {str(e)}")
         return False
 
 def main_task():
-    print("\n" + "="*50)
-    print(f"Güncelleme başlatıldı: {time.strftime('%Y-%m-%d %H:%M:%S')}")
-    print("="*50)
+    """Ana görevi yürütür"""
+    logger.info("\n" + "="*50)
+    logger.info(f"Güncelleme başlatıldı: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info("="*50)
     
     channels = fetch_all_channels()
-    generate_m3u(channels)
+    result = generate_m3u(channels)
     
-    print(f"Sonraki güncelleme: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time() + 7200))}")
-    print("="*50 + "\n")
+    logger.info("="*50)
+    return result
 
 if __name__ == "__main__":
-    # İlk çalıştırmayı hemen yap
+    # GitHub Actions için tek seferlik çalıştırma
+    logger.info("GitHub Actions için başlatılıyor...")
+    start_time = time.time()
+    
     main_task()
     
-    # Zamanlayıcıyı ayarla (her 2 saatte bir)
-    scheduler = BlockingScheduler()
-    scheduler.add_job(main_task, 'interval', hours=2, id='vavoo_updater')
-    
-    print("Zamanlayıcı başlatıldı. Çıkmak için Ctrl+C'ye basın.")
-    
-    try:
-        scheduler.start()
-    except (KeyboardInterrupt, SystemExit):
-        print("\nProgram sonlandırıldı")
+    duration = time.time() - start_time
+    logger.info(f"Playlist başarıyla oluşturuldu! Süre: {duration:.2f} saniye")
