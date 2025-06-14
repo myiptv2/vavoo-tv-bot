@@ -10,8 +10,8 @@ logger = logging.getLogger(__name__)
 
 # Vavoo.tv API ayarları
 URL = "https://vavoo.to/channels"
-PROXY_BASE = "https://kerimmkirac-vavoo.hf.space/proxy/m3u?url=https://vavoo.to/play/{}/index.m3u8"
-LOGO_URL = "https://raw.githubusercontent.com/kerimmkirac/CanliTvListe/refs/heads/main/vavoo.png"
+PROXY_BASE = "https://Tolgadilber-iptv.hf.space/proxy/m3u?url=https://vavoo.to/play/{}/index.m3u8"
+LOGO_URL = ""
 OUTPUT_FILE = "vavooall.m3u"
 
 # Karakter dönüşüm tablosu
