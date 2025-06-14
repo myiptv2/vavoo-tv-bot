@@ -2,14 +2,13 @@ name: Run TV Bot
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */2 * * *'  # Her 2 saatte bir
+    - cron: '0 */2 * * *'
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
       
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -17,16 +16,22 @@ jobs:
         python-version: '3.10'
         
     - name: Install packages
-      run: |
-        pip install requests
-        pip install APScheduler
-        pip install m3u8
-        
+      run: pip install requests APScheduler m3u8
+      
     - name: Run bot
       run: python bot.py
       
+    - name: Check file exists
+      run: |
+        if [ ! -f vavooall.m3u ]; then
+          echo "vavooall.m3u dosyası oluşmadı!"
+          exit 1
+        fi
+        echo "Dosya başarıyla oluştu"
+        
     - name: Upload playlist
-      uses: actions/upload-artifact@v4  # v4'e güncellendi
+      uses: actions/upload-artifact@v4
       with:
         name: playlist
         path: vavooall.m3u
+        retention-days: 1
