@@ -1,7 +1,8 @@
 name: Run TV Bot
 on:
+  workflow_dispatch: # ✅ BU SATIRI EKLE
   schedule:
-    - cron: '0 */2 * * *'  # Her 2 saatte bir
+    - cron: '0 */2 * * *'
 
 jobs:
   run-bot:
