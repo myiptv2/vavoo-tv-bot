@@ -1,39 +1,46 @@
-name: Run TV Bot
+name: Vavoo Güncelleyici
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: '0 */2 * * *'
+    - cron: '0 */2 * * *'  # Her 2 saatte bir
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
-  run-bot:
+  update:
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v4
-      
-    - name: Set up Python
-      uses: actions/setup-python@v4
+    - name: Repoyu al
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Tüm commit geçmişini al
+
+    - name: Python kur
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
-        
-    - name: Install packages
+
+    - name: Gerekli paketleri yükle
       run: pip install requests APScheduler m3u8
-      
-    - name: Run bot
+
+    - name: Botu çalıştır
       run: python bot.py
-      
-    # YENİ EKLENEN ADIM: Dosyayı ana dizine kopyala
-    - name: Move file to root
+
+    - name: Değişiklik kontrolü
+      id: check-changes
       run: |
-        echo "Oluşturulan dosya:"
-        ls -la
-        mv vavooall.m3u ./ || echo "Dosya taşınamadı"
-        
-    # YENİ EKLENEN ADIM: Dosyayı repoya ekle
-    - name: Commit and push
+        git diff --exit-code vavooall.m3u || echo "changed=true" >> $GITHUB_OUTPUT
+        echo "Değişiklik durumu: ${{ steps.check-changes.outputs.changed }}"
+
+    - name: Değişiklikleri commitle
+      if: steps.check-changes.outputs.changed == 'true'
       run: |
-        git config --global user.name "GitHub Actions"
-        git config --global user.email "actions@users.noreply.github.com"
+        git config user.name "GitHub Actions"
+        git config user.email "actions@users.noreply.github.com"
         git add vavooall.m3u
-        git commit -m "Bot tarafından otomatik güncelleme"
+        git commit -m "🔄 Otomatik güncelleme: $(date +'%d.%m.%Y %H:%M')"
+        git pushfından otomatik güncelleme"
         git push origin main
