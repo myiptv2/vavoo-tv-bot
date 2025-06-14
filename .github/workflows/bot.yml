@@ -1,4 +1,5 @@
 name: Run TV Bot
+
 on:
   workflow_dispatch:
   schedule:
@@ -21,17 +22,18 @@ jobs:
     - name: Run bot
       run: python bot.py
       
-    - name: Check file exists
+    # YENİ EKLENEN ADIM: Dosyayı ana dizine kopyala
+    - name: Move file to root
       run: |
-        if [ ! -f vavooall.m3u ]; then
-          echo "vavooall.m3u dosyası oluşmadı!"
-          exit 1
-        fi
-        echo "Dosya başarıyla oluştu"
+        echo "Oluşturulan dosya:"
+        ls -la
+        mv vavooall.m3u ./ || echo "Dosya taşınamadı"
         
-    - name: Upload playlist
-      uses: actions/upload-artifact@v4
-      with:
-        name: playlist
-        path: vavooall.m3u
-        retention-days: 1
+    # YENİ EKLENEN ADIM: Dosyayı repoya ekle
+    - name: Commit and push
+      run: |
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@users.noreply.github.com"
+        git add vavooall.m3u
+        git commit -m "Bot tarafından otomatik güncelleme"
+        git push origin main
