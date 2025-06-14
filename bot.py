@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 # Vavoo.tv API ayarları
 URL = "https://vavoo.to/channels"
-PROXY_BASE = "https://kerimmkirac-vavoo.hf.space/proxy/m3u?url=https://vavoo.to/play/{}/index.m3u8"
+PROXY_BASE = "https://myiptv2-vpn.hf.space/proxy/m3u?url=https://vavoo.to/play/{}/index.m3u8"
 LOGO_URL = ""
 OUTPUT_FILE = "vavooall.m3u"
 
