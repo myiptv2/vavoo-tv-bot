@@ -13,6 +13,7 @@ URL = "https://vavoo.to/channels"
 PROXY_BASE = "https://myiptv2-vpn.hf.space/proxy/m3u?url=https://vavoo.to/play/{}/index.m3u8"
 LOGO_URL = ""
 OUTPUT_FILE = "vavooall.m3u"
+TARGET_COUNTRY = "Turkey"  # Sadece Türkiye kanallarını işle
 
 # Karakter dönüşüm tablosu
 TURKISH_CHAR_MAP = str.maketrans({
@@ -95,39 +96,41 @@ def fix_channel_name(name):
         name = re.sub(wrong, correct, name, flags=re.IGNORECASE)
     return name.strip()
 
-def fetch_all_channels():
-    """Tüm kanalları Vavoo API'den çeker"""
+def fetch_turkish_channels():
+    """Sadece Türkiye kanallarını Vavoo API'den çeker"""
     try:
-        logger.info("Kanal listesi çekiliyor...")
+        logger.info("Türkiye kanal listesi çekiliyor...")
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
         response = requests.get(URL, headers=headers, timeout=30)
         response.raise_for_status()  # HTTP hataları için
         
-        channels = response.json()
-        logger.info(f"{len(channels)} kanal bulundu")
+        all_channels = response.json()
+        
+        # Sadece Türkiye kanallarını filtrele
+        turkish_channels = [
+            ch for ch in all_channels 
+            if ch.get("country", "").lower() == TARGET_COUNTRY.lower()
+        ]
+        
+        logger.info(f"Toplam {len(all_channels)} kanaldan {len(turkish_channels)} Türkiye kanalı bulundu")
         
         # Kanal isimlerini düzelt ve tvg-id oluştur
-        for ch in channels:
+        for ch in turkish_channels:
             ch["name"] = fix_channel_name(ch.get("name", ""))
             ch["tvg_id"] = normalize_tvg_id(ch["name"])
             ch["country"] = ch.get("country", "Unknown")
         
-        # Ülke ve isme göre sırala
-        def sort_key(ch):
-            country = ch.get("country", "").lower()
-            name = ch.get("name", "").lower()
-            return (country, name)
-        
-        return sorted(channels, key=sort_key)
+        # İsime göre sırala
+        return sorted(turkish_channels, key=lambda x: x.get("name", "").lower())
     
     except Exception as e:
         logger.error(f"Kanal listesi alınamadı: {str(e)}")
         return []
 
 def generate_m3u(channels):
-    """M3U dosyasını oluşturur"""
+    """M3U dosyasını sadece Türkiye kanallarıyla oluşturur"""
     if not channels:
         logger.warning("Kanal listesi boş, dosya oluşturulmadı")
         return False
@@ -158,17 +161,17 @@ def generate_m3u(channels):
                     f'group-title="{group_title}",{name}\n{proxy_url}\n'
                 )
         
-        logger.info(f"{len(channels)} kanal başarıyla kaydedildi → '{OUTPUT_FILE}'")
+        logger.info(f"{len(channels)} Türkiye kanalı başarıyla kaydedildi → '{OUTPUT_FILE}'")
         return True
     except Exception as e:
         logger.error(f"Dosya yazma hatası: {str(e)}")
         return False
 
 def update_m3u_urls(channels):
-    """Mevcut M3U dosyasını güncelleyerek sadece tvg-id eşleşen kanalların URL'lerini günceller"""
-    # Vavoo kanallarını tvg-id'ye göre eşle
-    vavoo_channel_map = {ch["tvg_id"]: ch for ch in channels}
-    logger.info(f"Vavoo'dan {len(vavoo_channel_map)} benzersiz tvg-id alındı")
+    """Mevcut M3U dosyasını güncelleyerek sadece tvg-id eşleşen Türkiye kanallarının URL'lerini günceller"""
+    # Türkiye kanallarını tvg-id'ye göre eşle
+    turkish_channel_map = {ch["tvg_id"]: ch for ch in channels}
+    logger.info(f"Vavoo'dan {len(turkish_channel_map)} Türkiye kanalı alındı")
     
     # Dosyayı satır satır oku ve güncelle
     updated_count = 0
@@ -192,9 +195,9 @@ def update_m3u_urls(channels):
                 
                 # URL satırını işle
                 if current_tvg_id:
-                    # Eğer bu tvg-id Vavoo'da varsa URL'yi güncelle
-                    if current_tvg_id in vavoo_channel_map:
-                        channel_id = vavoo_channel_map[current_tvg_id]["id"]
+                    # Eğer bu tvg-id Türkiye kanallarında varsa URL'yi güncelle
+                    if current_tvg_id in turkish_channel_map:
+                        channel_id = turkish_channel_map[current_tvg_id]["id"]
                         new_url = PROXY_BASE.format(channel_id)
                         outfile.write(new_url + "\n")
                         updated_count += 1
@@ -206,7 +209,7 @@ def update_m3u_urls(channels):
         
         # Geçici dosyayı asıl dosyaya taşı
         os.replace(temp_file, OUTPUT_FILE)
-        logger.info(f"{updated_count} kanalın URL'si başarıyla güncellendi")
+        logger.info(f"{updated_count} Türkiye kanalının URL'si başarıyla güncellendi")
         return True
         
     except Exception as e:
@@ -221,10 +224,10 @@ def main_task():
     logger.info(f"Güncelleme başlatıldı: {time.strftime('%Y-%m-%d %H:%M:%S')}")
     logger.info("="*50)
     
-    channels = fetch_all_channels()
+    channels = fetch_turkish_channels()
     
     if not channels:
-        logger.error("Kanal listesi alınamadı. İşlem iptal edildi.")
+        logger.error("Türkiye kanal listesi alınamadı. İşlem iptal edildi.")
         return False
         
     # Dosya yoksa yeni oluştur, varsa güncelle
@@ -232,7 +235,7 @@ def main_task():
         logger.warning(f"{OUTPUT_FILE} dosyası bulunamadı, yeni dosya oluşturuluyor...")
         result = generate_m3u(channels)
     else:
-        logger.info(f"{OUTPUT_FILE} dosyası bulundu, URL güncellemesi yapılıyor...")
+        logger.info(f"{OUTPUT_FILE} dosyası bulundu, Türkiye kanallarının URL'leri güncelleniyor...")
         result = update_m3u_urls(channels)
     
     logger.info("="*50)
