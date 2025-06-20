@@ -12,8 +12,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-        with:
-          path: main  # Önemli: Repoyu alt dizine çek
 
       - name: Set up Python
         uses: actions/setup-python@v3
@@ -23,15 +21,10 @@ jobs:
       - name: Install dependencies
         run: pip install requests
 
-      - name: List files (for debugging)
-        run: ls -R  # Dizin yapısını göster
-
       - name: Run script
-        working-directory: ./main  # Çalışma dizinini değiştir
-        run: python vavoo_updater.py
+        run: python bot  # Dosya adınız "bot" olduğu için
 
       - name: Commit and push changes
-        working-directory: ./main  # Çalışma dizinini değiştir
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
