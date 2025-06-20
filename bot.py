@@ -108,9 +108,10 @@ def fetch_all_channels():
         channels = response.json()
         logger.info(f"{len(channels)} kanal bulundu")
         
-        # Kanal isimlerini düzelt
+        # Kanal isimlerini düzelt ve tvg-id oluştur
         for ch in channels:
             ch["name"] = fix_channel_name(ch.get("name", ""))
+            ch["tvg_id"] = normalize_tvg_id(ch["name"])
             ch["country"] = ch.get("country", "Unknown")
         
         # Ülke ve isme göre sırala
@@ -143,7 +144,7 @@ def generate_m3u(channels):
             f.write("#EXTM3U\n")
             for ch in channels:
                 name = ch.get("name", "Unknown").strip()
-                tvg_id = normalize_tvg_id(name)
+                tvg_id = ch["tvg_id"]
                 proxy_url = PROXY_BASE.format(ch.get("id"))
                 country_en = ch.get("country", "Unknown")
 
@@ -163,6 +164,57 @@ def generate_m3u(channels):
         logger.error(f"Dosya yazma hatası: {str(e)}")
         return False
 
+def update_m3u_urls(channels):
+    """Mevcut M3U dosyasını güncelleyerek sadece tvg-id eşleşen kanalların URL'lerini günceller"""
+    # Vavoo kanallarını tvg-id'ye göre eşle
+    vavoo_channel_map = {ch["tvg_id"]: ch for ch in channels}
+    logger.info(f"Vavoo'dan {len(vavoo_channel_map)} benzersiz tvg-id alındı")
+    
+    # Dosyayı satır satır oku ve güncelle
+    updated_count = 0
+    temp_file = OUTPUT_FILE + ".tmp"
+    tvg_id_pattern = re.compile(r'tvg-id="(.*?)"')
+    
+    try:
+        with open(OUTPUT_FILE, "r", encoding="utf-8") as infile, \
+             open(temp_file, "w", encoding="utf-8") as outfile:
+            
+            current_tvg_id = None
+            for line in infile:
+                stripped_line = line.strip()
+                
+                # EXTINF satırında tvg-id'yi ara
+                if stripped_line.startswith("#EXTINF"):
+                    match = tvg_id_pattern.search(stripped_line)
+                    current_tvg_id = match.group(1) if match else None
+                    outfile.write(line)
+                    continue
+                
+                # URL satırını işle
+                if current_tvg_id:
+                    # Eğer bu tvg-id Vavoo'da varsa URL'yi güncelle
+                    if current_tvg_id in vavoo_channel_map:
+                        channel_id = vavoo_channel_map[current_tvg_id]["id"]
+                        new_url = PROXY_BASE.format(channel_id)
+                        outfile.write(new_url + "\n")
+                        updated_count += 1
+                    else:
+                        outfile.write(line)
+                    current_tvg_id = None
+                else:
+                    outfile.write(line)
+        
+        # Geçici dosyayı asıl dosyaya taşı
+        os.replace(temp_file, OUTPUT_FILE)
+        logger.info(f"{updated_count} kanalın URL'si başarıyla güncellendi")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Dosya güncelleme hatası: {str(e)}")
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+        return False
+
 def main_task():
     """Ana görevi yürütür"""
     logger.info("\n" + "="*50)
@@ -170,7 +222,18 @@ def main_task():
     logger.info("="*50)
     
     channels = fetch_all_channels()
-    result = generate_m3u(channels)
+    
+    if not channels:
+        logger.error("Kanal listesi alınamadı. İşlem iptal edildi.")
+        return False
+        
+    # Dosya yoksa yeni oluştur, varsa güncelle
+    if not os.path.exists(OUTPUT_FILE):
+        logger.warning(f"{OUTPUT_FILE} dosyası bulunamadı, yeni dosya oluşturuluyor...")
+        result = generate_m3u(channels)
+    else:
+        logger.info(f"{OUTPUT_FILE} dosyası bulundu, URL güncellemesi yapılıyor...")
+        result = update_m3u_urls(channels)
     
     logger.info("="*50)
     return result
@@ -183,4 +246,4 @@ if __name__ == "__main__":
     main_task()
     
     duration = time.time() - start_time
-    logger.info(f"Playlist başarıyla oluşturuldu! Süre: {duration:.2f} saniye")
+    logger.info(f"İşlem tamamlandı! Süre: {duration:.2f} saniye")
