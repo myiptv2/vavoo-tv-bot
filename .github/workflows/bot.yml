@@ -21,10 +21,32 @@ jobs:
       - name: Install dependencies
         run: pip install requests
 
+      # Dosyanın orijinal hash'ini kaydet
+      - name: Get original file hash
+        id: original_hash
+        run: |
+          if [ -f vavooall.m3u ]; then
+            echo "original_hash=$(sha256sum vavooall.m3u | awk '{print $1}')" >> $GITHUB_OUTPUT
+          else
+            echo "original_hash=" >> $GITHUB_OUTPUT
+          fi
+
       - name: Run script
         run: python bot.py
 
+      # Güncellenmiş dosyanın hash'ini kaydet
+      - name: Get updated file hash
+        id: updated_hash
+        run: |
+          if [ -f vavooall.m3u ]; then
+            echo "updated_hash=$(sha256sum vavooall.m3u | awk '{print $1}')" >> $GITHUB_OUTPUT
+          else
+            echo "updated_hash=" >> $GITHUB_OUTPUT
+          fi
+
+      # Sadece hash değiştiyse commit ve push yap
       - name: Commit and push changes
+        if: steps.original_hash.outputs.original_hash != steps.updated_hash.outputs.updated_hash
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
