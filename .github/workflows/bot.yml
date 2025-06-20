@@ -22,7 +22,7 @@ jobs:
         run: pip install requests
 
       - name: Run script
-        run: python bot  # Dosya adınız "bot" olduğu için
+        run: python bot.py
 
       - name: Commit and push changes
         run: |
