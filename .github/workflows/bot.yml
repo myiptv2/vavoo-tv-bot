@@ -1,46 +1,33 @@
-name: Vavoo Güncelleyici
+name: Update Channels
 
 on:
   schedule:
-    - cron: '0 */2 * * *'  # Her 2 saatte bir
+    - cron: '0 * * * *'  # Her saat başı
   workflow_dispatch:
-
-permissions:
-  contents: write
 
 jobs:
   update:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Repoyu al
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0  # Tüm commit geçmişini al
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-    - name: Python kur
-      uses: actions/setup-python@v5
+    - name: Set up Python
+      uses: actions/setup-python@v3
       with:
         python-version: '3.10'
 
-    - name: Gerekli paketleri yükle
-      run: pip install requests APScheduler m3u8
+    - name: Install dependencies
+      run: pip install requests
 
-    - name: Botu çalıştır
-      run: python bot.py
+    - name: Run script
+      run: python vavoo_updater.py
 
-    - name: Değişiklik kontrolü
-      id: check-changes
-      run: |
-        git diff --exit-code vavooall.m3u || echo "changed=true" >> $GITHUB_OUTPUT
-        echo "Değişiklik durumu: ${{ steps.check-changes.outputs.changed }}"
-
-    - name: Değişiklikleri commitle
-      if: steps.check-changes.outputs.changed == 'true'
+    - name: Commit and push changes
       run: |
         git config user.name "GitHub Actions"
-        git config user.email "actions@users.noreply.github.com"
+        git config user.email "actions@github.com"
         git add vavooall.m3u
-        git commit -m "🔄 Otomatik güncelleme: $(date +'%d.%m.%Y %H:%M')"
-        git pushfından otomatik güncelleme"
-        git push origin main
+        git commit -m "🔄 Otomatik güncelleme"
+        git push
