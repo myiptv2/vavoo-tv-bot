@@ -158,8 +158,10 @@ def generate_m3u(channels):
                 f.write(
                     f'#EXTINF:-1 tvg-name="{name}" tvg-language="{lang}" '
                     f'tvg-country="{country_tr}" tvg-id="{tvg_id}" tvg-logo="{LOGO_URL}" '
-                    f'group-title="{group_title}",{name}\n{proxy_url}\n'
+                    f'group-title="{group_title}",{name}\n'
                 )
+                f.write(f"#EXTVLCOPT:http-user-agent=VAVOO/2.6\n")
+                f.write(f"{proxy_url}\n")
         
         logger.info(f"{len(channels)} Türkiye kanalı başarıyla kaydedildi → '{OUTPUT_FILE}'")
         return True
@@ -183,6 +185,8 @@ def update_m3u_urls(channels):
              open(temp_file, "w", encoding="utf-8") as outfile:
             
             current_tvg_id = None
+            skip_next_line = False  # Bir sonraki satırı atlamak için bayrak
+            
             for line in infile:
                 stripped_line = line.strip()
                 
@@ -191,10 +195,17 @@ def update_m3u_urls(channels):
                     match = tvg_id_pattern.search(stripped_line)
                     current_tvg_id = match.group(1) if match else None
                     outfile.write(line)
+                    skip_next_line = False
                     continue
                 
-                # URL satırını işle
-                if current_tvg_id:
+                # #EXTVLCOPT satırını kontrol et
+                if stripped_line.startswith("#EXTVLCOPT"):
+                    outfile.write(line)
+                    skip_next_line = False
+                    continue
+                
+                # URL satırını işle (hem http hem https başlangıçları için kontrol)
+                if (stripped_line.startswith("http://") or stripped_line.startswith("https://")) and current_tvg_id:
                     # Eğer bu tvg-id Türkiye kanallarında varsa URL'yi güncelle
                     if current_tvg_id in turkish_channel_map:
                         channel_id = turkish_channel_map[current_tvg_id]["id"]
